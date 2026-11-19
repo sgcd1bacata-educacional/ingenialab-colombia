@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#102a43">
+<meta name="description" content="IngeniaLab.Colombia: aprende Ingeniería Industrial creando, experimentando y simulando.">
+<title>IngeniaLab.Colombia | Ingeniería en acción</title>
+<style>
+:root{--navy:#102a43;--blue:#173f5f;--lime:#b7e432;--ink:#172b3a;--muted:#607487;--paper:#f4f7f8;--white:#fff}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,Segoe UI,Arial,sans-serif;line-height:1.6}
+a{color:inherit;text-decoration:none}.wrap{width:min(1120px,92%);margin:auto}
+header{background:var(--navy);color:white;position:sticky;top:0;z-index:10;border-bottom:3px solid var(--lime)}
+nav{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:20px}.brand{font-weight:900;font-size:1.4rem;letter-spacing:-.5px}.brand span{display:block;color:var(--lime);font-size:.72rem;letter-spacing:3px;line-height:1}.links{display:flex;gap:24px;font-size:.93rem}.links a:hover{color:var(--lime)}
+.hero{background:linear-gradient(125deg,#102a43,#1d5270);color:white;padding:88px 0 82px;overflow:hidden;position:relative}.hero:after{content:"";position:absolute;width:380px;height:380px;border:1px solid #ffffff22;border-radius:50%;right:-70px;top:-130px;box-shadow:0 0 0 42px #ffffff08,0 0 0 85px #ffffff06}
+.eyebrow{color:var(--lime);font-weight:800;text-transform:uppercase;letter-spacing:2px;font-size:.78rem}.hero h1{font-size:clamp(2.5rem,6vw,4.9rem);line-height:1.04;max-width:760px;margin:16px 0}.hero h1 em{font-style:normal;color:var(--lime)}.hero p{font-size:1.15rem;color:#e1edf3;max-width:650px}.actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}.btn{display:inline-block;padding:12px 20px;border-radius:8px;font-weight:800;background:var(--lime);color:var(--navy)}.btn.alt{background:transparent;border:1px solid #ffffff88;color:white}
+section{padding:66px 0}.section-head{max-width:690px;margin-bottom:28px}.section-head h2{font-size:2rem;line-height:1.2;margin:5px 0 10px;color:var(--navy)}.section-head p{color:var(--muted);margin:0}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.tile{background:white;border:1px solid #e1e9ed;border-radius:14px;padding:24px;box-shadow:0 8px 24px #16324a0a}.tile .symbol{width:46px;height:46px;border-radius:12px;background:#eff7d8;display:grid;place-items:center;font-size:1.4rem}.tile h3{margin:14px 0 6px;color:var(--navy)}.tile p{color:var(--muted);margin:0;font-size:.96rem}
+.band{background:#eaf1f4}.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.step{border-left:4px solid var(--lime);padding:8px 18px}.step b{color:var(--navy);font-size:1.05rem}
+.cta{background:var(--navy);color:white;border-radius:18px;padding:34px;display:flex;justify-content:space-between;align-items:center;gap:24px}.cta h2{margin:0 0 6px}.cta p{margin:0;color:#d8e4eb}
+footer{background:#0b1f30;color:#c9d7df;padding:28px 0;font-size:.9rem}.foot{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}.lime{color:var(--lime)}
+@media(max-width:760px){.links{gap:12px;font-size:.82rem}.grid,.steps{grid-template-columns:1fr}.hero{padding:66px 0}.cta{display:block}.cta .btn{margin-top:18px}}@media(max-width:440px){nav{align-items:flex-start;padding:15px 0;flex-direction:column}.links{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><nav><a class="brand" href="#">IngeniaLab<span>COLOMBIA</span></a><div class="links"><a href="#laboratorios">Laboratorios</a><a href="#metodo">Cómo aprendemos</a><a href="#proyecto">El proyecto</a></div></nav></div></header>
+<main>
+<section class="hero"><div class="wrap"><div class="eyebrow">Aprendizaje práctico · Ingeniería Industrial</div><h1>Ideas que se convierten en <em>soluciones.</em></h1><p>Un espacio para aprender Ingeniería Industrial haciendo: explora procesos, construye simuladores, experimenta con datos y transforma desafíos en experiencias interactivas.</p><div class="actions"><a class="btn" href="#laboratorios">Explorar laboratorios</a><a class="btn alt" href="#metodo">Conoce nuestra metodología</a></div></div></section>
+<section id="laboratorios"><div class="wrap"><div class="section-head"><div class="eyebrow">Aprender implementando</div><h2>Laboratorios para experimentar</h2><p>Recursos digitales para llevar los conceptos a la práctica. Esta será la puerta de entrada a los simuladores, juegos y actividades que iremos construyendo.</p></div>
+<div class="grid">
+<article class="tile"><div class="symbol">⚙️</div><h3>Producción y operaciones</h3><p>Planeación, capacidad, balanceo de líneas, tiempos, productividad e inventarios.</p></article>
+<article class="tile"><div class="symbol">📊</div><h3>Calidad y datos</h3><p>Control estadístico, indicadores, análisis de variación y toma de decisiones basada en datos.</p></article>
+<article class="tile"><div class="symbol">🚚</div><h3>Logística y cadena de suministro</h3><p>Abastecimiento, almacenamiento, distribución y diseño de redes logísticas.</p></article>
+<article class="tile"><div class="symbol">🧩</div><h3>Simulación de procesos</h3><p>Representa sistemas, prueba escenarios y observa cómo cambian sus resultados.</p></article>
+<article class="tile"><div class="symbol">💡</div><h3>Proyectos y finanzas</h3><p>Evalúa alternativas con costos, flujos de caja, indicadores y análisis de riesgo.</p></article>
+<article class="tile"><div class="symbol">🦺</div><h3>Seguridad y sostenibilidad</h3><p>Identifica peligros, analiza condiciones de trabajo y plantea mejoras responsables.</p></article>
+</div></div></section>
+<section class="band" id="metodo"><div class="wrap"><div class="section-head"><div class="eyebrow">Nuestra forma de aprender</div><h2>Comprender. Construir. Experimentar.</h2><p>No se trata solamente de conocer una herramienta: se trata de aprender a crearla, usarla y mejorarla.</p></div><div class="steps"><div class="step"><b>01 · Comprende el reto</b><p>Identifica el problema, los conceptos y las variables del sistema.</p></div><div class="step"><b>02 · Construye el modelo</b><p>Diseña una solución, organiza los datos y crea tu simulador o actividad.</p></div><div class="step"><b>03 · Experimenta y mejora</b><p>Prueba escenarios, interpreta resultados y comunica tus conclusiones.</p></div></div></div></section>
+<section id="proyecto"><div class="wrap"><div class="cta"><div><div class="eyebrow">IngeniaLab.Colombia</div><h2>Ingeniería en acción</h2><p>Un laboratorio abierto para aprender creando y compartir conocimiento.</p></div><a class="btn" href="https://github.com/sgcd1bacata-educacional/ingenialab-colombia" target="_blank" rel="noopener">Ver proyecto en GitHub ↗</a></div></div></section>
+</main>
+<footer><div class="wrap foot"><div><strong>IngeniaLab<span class="lime">.Colombia</span></strong><br>Ingeniería en acción.</div><div>Proyecto educativo en construcción · Colombia</div></div></footer>
+</body></html>
