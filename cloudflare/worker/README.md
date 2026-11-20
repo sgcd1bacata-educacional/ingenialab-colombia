@@ -138,3 +138,17 @@ El archivo completo estuvo alojado en un repositorio público. Moverlo a R2 y re
 - Wompi — [Eventos y validación del checksum](https://docs.wompi.co/docs/colombia/eventos/)
 - Cloudflare — [R2 con Workers](https://developers.cloudflare.com/r2/api/workers/workers-api/)
 - Cloudflare — [Migraciones D1](https://developers.cloudflare.com/d1/reference/migrations/)
+
+
+## Ajustes de Cloudflare Workers Builds
+
+El Worker está conectado al repositorio de GitHub. En **Settings → Builds** del proyecto `ingenialab-beta1-access`, utiliza:
+- Production branch: `beta1-private-access`
+- Root directory: `/cloudflare/worker`
+- Build command: vacío / None
+- Deploy command: `npx wrangler deploy`
+- Preview command: predeterminado
+
+Como la raíz del build ya es `/cloudflare/worker`, Wrangler encuentra el archivo `wrangler.toml` directamente en esa carpeta. No agregues `--config cloudflare/worker/wrangler.toml` al comando de despliegue, porque esa ruta se resolvería dos veces.
+
+Un commit nuevo en la rama de producción configurada inicia el siguiente build. El fallo inicial ocurrió cuando Cloudflare ejecutó Wrangler desde la raíz del repositorio apuntando a una ruta de configuración incorrecta; no repitas ese intento antiguo de `main`.
