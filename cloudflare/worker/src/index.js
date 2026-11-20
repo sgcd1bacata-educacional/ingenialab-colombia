@@ -16,17 +16,21 @@ export default {
 
     try {
       if (url.pathname === "/health" && request.method === "GET") {
-        // Comprobar también los bindings reales, no solo que el Worker responda.
+        // Verifica D1, el bucket R2 y el archivo completo esperado.
         const dbResult = await env.DB.prepare(
           "SELECT COUNT(*) AS table_rows FROM purchases"
         ).first();
         await env.PRIVATE_ASSETS.list({ limit: 1 });
+        const assetKey = env.PRIVATE_ASSET_KEY || "drum-studio-beta1-full.html";
+        const asset = await env.PRIVATE_ASSETS.head(assetKey);
         return json({
           ok: true,
           service: "IngeniaLab Beta 1 access",
           bindings: {
             database: typeof dbResult?.table_rows === "number",
-            privateStorage: true
+            privateStorage: true,
+            privateAsset: Boolean(asset),
+            privateAssetSize: asset ? asset.size : 0
           }
         }, 200, origin, env);
       }
