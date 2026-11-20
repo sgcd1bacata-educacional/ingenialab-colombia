@@ -1,11 +1,6 @@
 const PRICE_COP = 4900;
 const PRICE_IN_CENTS = PRICE_COP * 100;
 const CURRENCY = "COP";
-const REQUIRED_EVENT_PROPERTIES = [
-  "transaction.id",
-  "transaction.status",
-  "transaction.amount_in_cents",
-];
 
 export default {
   async fetch(request, env) {
@@ -227,7 +222,11 @@ async function deliverContent(request, env, origin) {
 
 async function verifyWompiEvent(event, requestHeaders, secret) {
   const properties = event?.signature?.properties;
-  if (!Array.isArray(properties) || !REQUIRED_EVENT_PROPERTIES.every((key) => properties.includes(key))) {
+  // Wompi puede variar la lista y el orden de propiedades firmadas.
+  // Se recorren todas en el orden exacto recibido y se exige que el ID
+  // de la transacción esté firmado; referencia, estado, monto y moneda
+  // se contrastan después con la consulta servidor-a-servidor a Wompi.
+  if (!Array.isArray(properties) || properties.length === 0 || !properties.includes("transaction.id")) {
     return false;
   }
 
