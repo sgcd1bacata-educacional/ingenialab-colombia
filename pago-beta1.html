@@ -33,7 +33,7 @@
     <div class="line"></div>
     <div class="eyebrow">Drum Studio 5.9 · Beta 1</div>
     <h1>Verificación de acceso</h1>
-    <p>Estamos comprobando el resultado de tu pago con el sistema de pagos. El acceso solo se habilita cuando Wompi confirma la transacción.</p>
+    <p>Estamos esperando la confirmación oficial de Wompi. La redirección de regreso no habilita el simulador: primero debe llegar al servidor el evento firmado y verificarse la transacción.</p>
     <div class="status" role="status" aria-live="polite">
       <span class="dot" id="statusDot"></span>
       <div id="statusText">Preparando verificación segura…</div>
@@ -51,7 +51,6 @@
     const statusDot = document.getElementById("statusDot");
     const retryButton = document.getElementById("retryButton");
     const helpText = document.getElementById("helpText");
-    const transactionId = new URLSearchParams(window.location.search).get("id");
 
     function showStatus(message, isError = false) {
       statusText.textContent = message;
@@ -63,13 +62,6 @@
       retryButton.disabled = true;
       retryButton.hidden = true;
       showStatus("Consultando la transacción de forma segura…");
-
-      if (!transactionId) {
-        showStatus("No encontramos el identificador de la transacción en el retorno de Wompi.", true);
-        helpText.textContent = "No realices otro pago todavía. Conserva el comprobante y solicita ayuda a la persona administradora de IngeniaLab.";
-        retryButton.hidden = true;
-        return;
-      }
 
       let pending;
       try {
@@ -98,8 +90,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             reference: pending.reference,
-            accessToken: pending.accessToken,
-            transactionId
+            accessToken: pending.accessToken
           }),
           cache: "no-store",
           referrerPolicy: "no-referrer"
@@ -130,7 +121,6 @@
           throw new Error("El archivo recibido está incompleto.");
         }
 
-        sessionStorage.removeItem(STORAGE_KEY);
         document.open("text/html", "replace");
         document.write(html);
         document.close();
