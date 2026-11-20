@@ -23,6 +23,8 @@ El Worker calcula el checksum usando todas las propiedades que Wompi incluya, re
 
 ## Rutas del Worker
 
+`GET /health` ejecuta una consulta de lectura sobre D1 y una operación de lista sobre el bucket R2 para verificar que ambos bindings existen y responden.
+
 | Ruta | Uso |
 | --- | --- |
 | `GET /health` | Comprobar disponibilidad |
@@ -88,7 +90,7 @@ npx wrangler secret put ACCESS_TOKEN_PEPPER
 - `WOMPI_PRIVATE_KEY`: llave privada `prv_test_` del ambiente de pruebas; el Worker la usa exclusivamente en el servidor para consultar transacciones. Nunca se expone al navegador.
 - `ACCESS_TOKEN_PEPPER`: cadena aleatoria propia del servicio, larga y exclusiva.
 
-La llave pública de Wompi se configura en `WOMPI_PUBLIC_KEY` dentro de `wrangler.toml`. Empieza con la llave de pruebas `pub_test_`. El secreto de integridad de Wompi nunca se expone al navegador.
+La llave pública de Wompi (`WOMPI_PUBLIC_KEY`) es una variable de texto no secreta y debe configurarse desde **Settings → Variables and Secrets** con la llave `pub_test_` del ambiente Sandbox. `keep_vars = true` conserva las variables añadidas desde el panel durante los siguientes despliegues. El secreto de integridad y la llave privada de Wompi nunca se exponen al navegador.
 
 ### 5. Configurar y desplegar en pruebas
 
