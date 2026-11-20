@@ -19,7 +19,7 @@ El importe se fija en el servidor. El navegador no puede enviar otro valor para 
 - **Cloudflare R2 privado:** guarda el HTML completo. No se debe habilitar un dominio público para el bucket.
 - **Wompi Web Checkout:** checkout por transacción con referencia única. Se usa el Web Checkout porque permite firmar cada referencia desde el servidor; no es un enlace estático reutilizable.
 
-El Worker verifica el checksum del webhook y consulta de nuevo la transacción en Wompi para confirmar referencia, monto, moneda y estado. Los secretos se guardan en Cloudflare, nunca en el HTML ni en Git.
+El Worker verifica el checksum del webhook y consulta la transacción desde el servidor para confirmar referencia, monto, moneda y estado. Solo ese evento validado puede marcar la compra como pagada. La redirección del navegador es informativa y nunca habilita por sí sola el simulador. Los secretos se guardan en Cloudflare, nunca en el HTML ni en Git.
 
 ## Rutas del Worker
 
@@ -30,7 +30,7 @@ El Worker verifica el checksum del webhook y consulta de nuevo la transacción e
 | `POST /api/wompi/events` | Recibir y verificar `transaction.updated` |
 | `POST /api/content` | Entregar el HTML desde R2 solo si el pago está aprobado |
 
-El endpoint de checkout devuelve un token aleatorio de un solo comprador. La futura página de pago deberá guardarlo en almacenamiento del navegador antes de redirigir a Wompi y recuperarlo al volver. No debe ponerse en la URL ni enviarse a servicios de analítica.
+El endpoint de checkout devuelve un token aleatorio de un solo comprador. El ejemplo `checkout-client-example.js` lo guarda en `sessionStorage` antes de redirigir a Wompi; la pestaña debe permanecer abierta para recuperar el token al regresar. No se pone en la URL ni se envía a servicios de analítica. La página `pago-beta1.html` está preparada como retorno visual, pero debe configurarse con la URL real del Worker antes de poder usarse.
 
 ## Configuración — solo con la persona adulta responsable
 
@@ -117,7 +117,7 @@ Activa el evento `transaction.updated` y usa el secreto de eventos correspondien
 
 ## Integración pendiente con la página
 
-Aún falta agregar una página pública de retorno (`pago-beta1.html`) y el botón de compra del sitio. No se agrega el botón hasta que:
+La plantilla pública de retorno (`pago-beta1.html`) y el ejemplo de botón (`checkout-client-example.js`) ya están preparados en esta rama, pero aún no están conectados al sitio publicado. No se agrega el botón al `index.html` hasta que:
 1. El Worker esté desplegado y responda.
 2. D1 esté creado y migrado.
 3. El bucket privado contenga el archivo completo correcto.
