@@ -1,0 +1,28 @@
+name = "ingenialab-beta1-access"
+keep_vars = true
+main = "src/index.js"
+compatibility_date = "2026-11-19"
+workers_dev = true
+
+[vars]
+# Primero usar el ambiente de pruebas de Wompi. Cambiar a "prod" solo después de validar todo.
+WOMPI_ENV = "test"
+PUBLIC_SITE_ORIGIN = "https://sgcd1bacata-educacional.github.io"
+PUBLIC_RETURN_URL = "https://sgcd1bacata-educacional.github.io/ingenialab-colombia/pago-beta1.html"
+PRIVATE_ASSET_KEY = "drum-studio-beta1-full.html"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ingenialab-beta1-db"
+database_id = "7ab6bf7e-604f-41e3-b462-f556904d39a8"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "PRIVATE_ASSETS"
+bucket_name = "ingenialab-beta1-private"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
