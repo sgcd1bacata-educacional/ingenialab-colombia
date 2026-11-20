@@ -47,6 +47,7 @@ export default {
 
 async function createCheckout(request, env, origin) {
   requireConfig(env, [
+    "WOMPI_ENV",
     "WOMPI_PUBLIC_KEY",
     "WOMPI_INTEGRITY_SECRET",
     "PUBLIC_RETURN_URL",
@@ -74,7 +75,7 @@ async function createCheckout(request, env, origin) {
   ).bind(reference, email, PRICE_IN_CENTS, CURRENCY, tokenHash).run();
 
   const expectedKeyPrefix = env.WOMPI_ENV === "prod" ? "pub_prod_" : "pub_test_";
-  if (!env.WOMPI_PUBLIC_KEY.startsWith(expectedKeyPrefix)) {
+  if (!["test", "prod"].includes(env.WOMPI_ENV) || !env.WOMPI_PUBLIC_KEY.startsWith(expectedKeyPrefix) || env.WOMPI_PUBLIC_KEY.includes("REEMPLAZAR")) {
     throw httpError(503, "La llave pública de Wompi no corresponde al ambiente configurado.");
   }
 
