@@ -79,11 +79,13 @@ Crea secretos directamente en Cloudflare Wrangler. No escribas sus valores en es
 ```bash
 npx wrangler secret put WOMPI_INTEGRITY_SECRET
 npx wrangler secret put WOMPI_EVENTS_SECRET
+npx wrangler secret put WOMPI_PRIVATE_KEY
 npx wrangler secret put ACCESS_TOKEN_PEPPER
 ```
 
 - `WOMPI_INTEGRITY_SECRET`: secreto de integridad de Wompi.
 - `WOMPI_EVENTS_SECRET`: secreto de eventos/webhooks de Wompi; es distinto del secreto de integridad y de la llave privada.
+- `WOMPI_PRIVATE_KEY`: llave privada `prv_test_` del ambiente de pruebas; el Worker la usa exclusivamente en el servidor para consultar transacciones. Nunca se expone al navegador.
 - `ACCESS_TOKEN_PEPPER`: cadena aleatoria propia del servicio, larga y exclusiva.
 
 La llave pública de Wompi se configura en `WOMPI_PUBLIC_KEY` dentro de `wrangler.toml`. Empieza con la llave de pruebas `pub_test_`. El secreto de integridad de Wompi nunca se expone al navegador.
