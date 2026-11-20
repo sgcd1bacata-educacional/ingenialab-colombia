@@ -14,7 +14,7 @@ PRIVATE_ASSET_KEY = "drum-studio-beta1-full.html"
 [[d1_databases]]
 binding = "DB"
 database_name = "ingenialab-beta1-db"
-database_id = "REEMPLAZAR_CON_EL_ID_REAL_DE_D1"
+database_id = "7ab6bf7e-60f4-41e3-b462-f556904d39a8"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
