@@ -16,7 +16,19 @@ export default {
 
     try {
       if (url.pathname === "/health" && request.method === "GET") {
-        return json({ ok: true, service: "IngeniaLab Beta 1 access" }, 200, origin, env);
+        // Comprobar también los bindings reales, no solo que el Worker responda.
+        const dbResult = await env.DB.prepare(
+          "SELECT COUNT(*) AS table_rows FROM purchases"
+        ).first();
+        await env.PRIVATE_ASSETS.list({ limit: 1 });
+        return json({
+          ok: true,
+          service: "IngeniaLab Beta 1 access",
+          bindings: {
+            database: typeof dbResult?.table_rows === "number",
+            privateStorage: true
+          }
+        }, 200, origin, env);
       }
 
       if (url.pathname === "/api/checkout" && request.method === "POST") {
