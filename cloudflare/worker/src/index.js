@@ -99,7 +99,7 @@ async function createCheckout(request, env, origin) {
 }
 
 async function handleWompiEvent(request, env) {
-  requireConfig(env, ["WOMPI_EVENTS_SECRET", "WOMPI_ENV"]);
+  requireConfig(env, ["WOMPI_EVENTS_SECRET", "WOMPI_PRIVATE_KEY", "WOMPI_ENV"]);
 
   const raw = await request.text();
   if (raw.length > 64_000) throw httpError(413, "Evento demasiado grande.");
@@ -270,8 +270,16 @@ async function fetchWompiTransaction(transactionId, environment) {
   const base = environment === "prod"
     ? "https://production.wompi.co"
     : "https://sandbox.wompi.co";
+  const expectedPrivatePrefix = environment === "prod" ? "prv_prod_" : "prv_test_";
+  if (!env.WOMPI_PRIVATE_KEY || !env.WOMPI_PRIVATE_KEY.startsWith(expectedPrivatePrefix)) {
+    throw httpError(503, "La llave privada de Wompi no corresponde al ambiente configurado.");
+  }
+
   const response = await fetch(base + "/v1/transactions/" + encodeURIComponent(transactionId), {
-    headers: { "Accept": "application/json" },
+    headers: {
+      "Accept": "application/json",
+      "Authorization": "Bearer " + env.WOMPI_PRIVATE_KEY,
+    },
   });
 
   if (!response.ok) throw httpError(503, "No se pudo confirmar la transacción con Wompi.");
