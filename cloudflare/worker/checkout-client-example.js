@@ -2,7 +2,7 @@
 // No contiene llaves privadas ni secretos. La URL del Worker se completa
 // después del despliegue en Cloudflare.
 
-const BETA1_WORKER_URL = "https://ingenialab-beta1-access.REEMPLAZAR.workers.dev";
+const BETA1_WORKER_URL = "https://ingenialab-beta1-access.sgcd1bacata.workers.dev";
 const BETA1_SESSION_KEY = "ingenialab.beta1.pending";
 
 export async function beginDrumStudioBeta1Checkout(email) {
