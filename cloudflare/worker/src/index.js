@@ -178,16 +178,14 @@ async function handleWompiEvent(request, env) {
 }
 
 async function deliverContent(request, env, origin) {
-  requireConfig(env, ["ACCESS_TOKEN_PEPPER", "WOMPI_ENV"]);
+  requireConfig(env, ["ACCESS_TOKEN_PEPPER"]);
   const body = await readJson(request);
   const reference = typeof body.reference === "string" ? body.reference : "";
   const accessToken = typeof body.accessToken === "string" ? body.accessToken : "";
-  const transactionId = typeof body.transactionId === "string" ? body.transactionId : "";
 
   if (
     !/^ILAB-BETA1-[A-F0-9]{32}$/.test(reference) ||
-    !/^[a-f0-9]{64}$/.test(accessToken) ||
-    !/^[A-Za-z0-9-]{6,100}$/.test(transactionId)
+    !/^[a-f0-9]{64}$/.test(accessToken)
   ) {
     throw httpError(400, "Datos de acceso no válidos.");
   }
@@ -198,66 +196,16 @@ async function deliverContent(request, env, origin) {
      FROM purchases WHERE reference = ?`
   ).bind(reference).first();
 
+  // Solo el webhook firmado, verificado contra la API de Wompi en el servidor,
+  // puede cambiar una compra a "paid". La redirección del navegador no desbloquea.
   if (
     !purchase ||
-    !constantTimeEqual(tokenHash, purchase.access_token_hash || "") ||
+    purchase.status !== "paid" ||
     purchase.amount_in_cents !== PRICE_IN_CENTS ||
     purchase.currency !== CURRENCY ||
-    ["rejected", "revoked"].includes(purchase.status)
+    !constantTimeEqual(tokenHash, purchase.access_token_hash || "")
   ) {
     throw httpError(403, "El pago aún no está confirmado o el acceso no es válido.");
-  }
-
-  // Confirmamos la transacción desde el servidor. Nunca confiamos solo en la redirección del navegador.
-  const transaction = await fetchWompiTransaction(transactionId, env.WOMPI_ENV);
-  if (
-    !transaction ||
-    transaction.id !== transactionId ||
-    transaction.reference !== reference ||
-    Number(transaction.amount_in_cents) !== PRICE_IN_CENTS ||
-    transaction.currency !== CURRENCY
-  ) {
-    throw httpError(409, "La transacción no coincide con esta compra.");
-  }
-
-  if (transaction.status === "VOIDED") {
-    await env.DB.prepare(
-      `UPDATE purchases SET status = 'revoked', updated_at = CURRENT_TIMESTAMP
-       WHERE reference = ? AND wompi_transaction_id = ?`
-    ).bind(reference, transactionId).run();
-    throw httpError(403, "Esta transacción fue anulada.");
-  }
-
-  if (["DECLINED", "ERROR"].includes(transaction.status)) {
-    await env.DB.prepare(
-      `UPDATE purchases SET status = 'rejected', updated_at = CURRENT_TIMESTAMP
-       WHERE reference = ? AND status = 'pending'`
-    ).bind(reference).run();
-    throw httpError(402, "El pago no fue aprobado. Revisa el estado en Wompi.");
-  }
-
-  if (transaction.status !== "APPROVED") {
-    throw httpError(409, "El pago todavía está pendiente. Vuelve a comprobarlo en unos segundos.");
-  }
-
-  await env.DB.prepare(
-    `UPDATE purchases
-     SET status = 'paid', wompi_transaction_id = ?, paid_at = COALESCE(paid_at, CURRENT_TIMESTAMP),
-         updated_at = CURRENT_TIMESTAMP
-     WHERE reference = ? AND amount_in_cents = ? AND currency = ?
-       AND status IN ('pending', 'paid')`
-  ).bind(transactionId, reference, PRICE_IN_CENTS, CURRENCY).run();
-
-  const verifiedPurchase = await env.DB.prepare(
-    "SELECT status, wompi_transaction_id FROM purchases WHERE reference = ?"
-  ).bind(reference).first();
-
-  if (
-    !verifiedPurchase ||
-    verifiedPurchase.status !== "paid" ||
-    verifiedPurchase.wompi_transaction_id !== transactionId
-  ) {
-    throw httpError(409, "No se pudo confirmar el acceso para esta compra.");
   }
 
   const assetKey = env.PRIVATE_ASSET_KEY || "drum-studio-beta1-full.html";
