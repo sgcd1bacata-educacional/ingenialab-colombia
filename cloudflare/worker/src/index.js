@@ -137,7 +137,7 @@ async function handleWompiEvent(request, env) {
   if (!order) return new Response("ignored", { status: 200 });
 
   // Verificación independiente en Wompi para confirmar referencia, monto y moneda.
-  const confirmed = await fetchWompiTransaction(transaction.id, env.WOMPI_ENV);
+  const confirmed = await fetchWompiTransaction(transaction.id, env);
   if (
     confirmed?.id !== transaction.id ||
     confirmed?.reference !== order.reference ||
@@ -262,7 +262,8 @@ function getSafePath(object, parts) {
   return value;
 }
 
-async function fetchWompiTransaction(transactionId, environment) {
+async function fetchWompiTransaction(transactionId, env) {
+  const environment = env.WOMPI_ENV;
   if (!/^[A-Za-z0-9-]{6,100}$/.test(transactionId)) {
     throw httpError(400, "Identificador de transacción no válido.");
   }
