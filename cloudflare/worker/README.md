@@ -19,7 +19,7 @@ El importe se fija en el servidor. El navegador no puede enviar otro valor para 
 - **Cloudflare R2 privado:** guarda el HTML completo. No se debe habilitar un dominio público para el bucket.
 - **Wompi Web Checkout:** checkout por transacción con referencia única. Se usa el Web Checkout porque permite firmar cada referencia desde el servidor; no es un enlace estático reutilizable.
 
-El Worker verifica el checksum del webhook y consulta la transacción desde el servidor para confirmar referencia, monto, moneda y estado. Solo ese evento validado puede marcar la compra como pagada. La redirección del navegador es informativa y nunca habilita por sí sola el simulador. Los secretos se guardan en Cloudflare, nunca en el HTML ni en Git.
+El Worker calcula el checksum usando todas las propiedades que Wompi incluya, respetando su orden, y consulta la transacción desde el servidor para confirmar referencia, monto, moneda y estado. Solo ese evento validado puede marcar la compra como pagada. La redirección del navegador es informativa y nunca habilita por sí sola el simulador. Los secretos se guardan en Cloudflare, nunca en el HTML ni en Git.
 
 ## Rutas del Worker
 
@@ -117,7 +117,7 @@ Activa el evento `transaction.updated` y usa el secreto de eventos correspondien
 
 ## Integración pendiente con la página
 
-La plantilla pública de retorno (`pago-beta1.html`) y el ejemplo de botón (`checkout-client-example.js`) ya están preparados en esta rama, pero aún no están conectados al sitio publicado. No se agrega el botón al `index.html` hasta que:
+La plantilla pública de retorno (`pago-beta1.html`) y el ejemplo de botón (`checkout-client-example.js`) ya están preparados en esta rama, pero aún no están conectados al sitio publicado. El token temporal se conserva en `sessionStorage` de la misma pestaña; por eso el comprador debe regresar al sitio en esa misma pestaña. La página de retorno consulta el estado almacenado por el webhook y permite reintentar la comprobación mientras Wompi notifica el resultado. No se agrega el botón al `index.html` hasta que:
 1. El Worker esté desplegado y responda.
 2. D1 esté creado y migrado.
 3. El bucket privado contenga el archivo completo correcto.
