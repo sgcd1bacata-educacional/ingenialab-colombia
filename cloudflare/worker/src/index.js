@@ -23,6 +23,7 @@ export default {
         await env.PRIVATE_ASSETS.list({ limit: 1 });
         const assetKey = env.PRIVATE_ASSET_KEY || "drum-studio-beta1-full.html";
         const asset = await env.PRIVATE_ASSETS.head(assetKey);
+        const testEnvironment = env.WOMPI_ENV === "test";
         return json({
           ok: true,
           service: "IngeniaLab Beta 1 access",
@@ -31,6 +32,14 @@ export default {
             privateStorage: true,
             privateAsset: Boolean(asset),
             privateAssetSize: asset ? asset.size : 0
+          },
+          payments: {
+            environment: testEnvironment ? "test" : "not-test",
+            publicKeyReady: testEnvironment && typeof env.WOMPI_PUBLIC_KEY === "string" && env.WOMPI_PUBLIC_KEY.startsWith("pub_test_"),
+            privateKeyReady: testEnvironment && typeof env.WOMPI_PRIVATE_KEY === "string" && env.WOMPI_PRIVATE_KEY.startsWith("prv_test_"),
+            eventsSecretReady: testEnvironment && typeof env.WOMPI_EVENTS_SECRET === "string" && env.WOMPI_EVENTS_SECRET.startsWith("test_events_"),
+            integritySecretReady: testEnvironment && typeof env.WOMPI_INTEGRITY_SECRET === "string" && env.WOMPI_INTEGRITY_SECRET.startsWith("test_integrity_"),
+            accessPepperReady: testEnvironment && typeof env.ACCESS_TOKEN_PEPPER === "string" && env.ACCESS_TOKEN_PEPPER.length >= 64
           }
         }, 200, origin, env);
       }
@@ -211,12 +220,19 @@ async function deliverContent(request, env, origin) {
   // puede cambiar una compra a "paid". La redirección del navegador no desbloquea.
   if (
     !purchase ||
-    purchase.status !== "paid" ||
     purchase.amount_in_cents !== PRICE_IN_CENTS ||
     purchase.currency !== CURRENCY ||
     !constantTimeEqual(tokenHash, purchase.access_token_hash || "")
   ) {
-    throw httpError(403, "El pago aún no está confirmado o el acceso no es válido.");
+    throw httpError(403, "El acceso no es válido.");
+  }
+
+  if (purchase.status === "pending") {
+    throw httpError(409, "El pago todavía está pendiente de confirmación por Wompi.");
+  }
+
+  if (purchase.status !== "paid") {
+    throw httpError(403, "El pago no fue aprobado o el acceso fue revocado.");
   }
 
   const assetKey = env.PRIVATE_ASSET_KEY || "drum-studio-beta1-full.html";
