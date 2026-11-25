@@ -40,6 +40,10 @@ export default {
             eventsSecretReady: testEnvironment && typeof env.WOMPI_EVENTS_SECRET === "string" && env.WOMPI_EVENTS_SECRET.startsWith("test_events_"),
             integritySecretReady: testEnvironment && typeof env.WOMPI_INTEGRITY_SECRET === "string" && env.WOMPI_INTEGRITY_SECRET.startsWith("test_integrity_"),
             accessPepperReady: testEnvironment && typeof env.ACCESS_TOKEN_PEPPER === "string" && env.ACCESS_TOKEN_PEPPER.length >= 64
+          },
+          accessRecovery: {
+            emailProviderReady: Boolean(env.RESEND_API_KEY && env.RESEND_FROM_EMAIL),
+            individualAccessPageConfigured: Boolean(env.PUBLIC_RETURN_URL)
           }
         }, 200, origin, env);
       }
@@ -52,6 +56,16 @@ export default {
       if (url.pathname === "/api/content" && request.method === "POST") {
         assertBrowserOrigin(origin, env);
         return await deliverContent(request, env, origin);
+      }
+
+      if (url.pathname === "/api/access/recover" && request.method === "POST") {
+        assertBrowserOrigin(origin, env);
+        return await requestAccessRecovery(request, env, origin);
+      }
+
+      if (url.pathname === "/api/access/consume" && request.method === "POST") {
+        assertBrowserOrigin(origin, env);
+        return await consumeIndividualAccess(request, env, origin);
       }
 
       if (url.pathname === "/api/wompi/events" && request.method === "POST") {
@@ -89,6 +103,7 @@ async function createCheckout(request, env, origin) {
   }
 
   const reference = "ILAB-BETA1-" + crypto.randomUUID().replaceAll("-", "").toUpperCase();
+  const accessId = randomHex(16);
   const accessToken = randomHex(32);
   const tokenHash = await sha256Hex(accessToken + env.ACCESS_TOKEN_PEPPER);
   // Normaliza únicamente espacios externos que puedan quedar al copiar el secreto.
@@ -108,12 +123,13 @@ async function createCheckout(request, env, origin) {
 
   await env.DB.prepare(
     `INSERT INTO purchases
-      (reference, email, amount_in_cents, currency, status, access_token_hash)
-     VALUES (?, ?, ?, ?, 'pending', ?)`
-  ).bind(reference, email, PRICE_IN_CENTS, CURRENCY, tokenHash).run();
+      (reference, email, amount_in_cents, currency, status, access_token_hash, access_id)
+     VALUES (?, ?, ?, ?, 'pending', ?, ?)`
+  ).bind(reference, email, PRICE_IN_CENTS, CURRENCY, tokenHash, accessId).run();
 
   return json({
     reference,
+    accessId,
     accessToken,
     checkoutUrl: checkout.toString(),
     amountCop: PRICE_COP,
@@ -255,6 +271,186 @@ async function deliverContent(request, env, origin) {
     "Content-Disposition": 'inline; filename="IngeniaLab_Drum_Studio_5_9_Beta1.html"',
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
+  });
+  if (origin === env.PUBLIC_SITE_ORIGIN) {
+    Object.entries(corsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
+  }
+  return new Response(object.body, { status: 200, headers });
+}
+
+async function requestAccessRecovery(request, env, origin) {
+  requireConfig(env, [
+    "ACCESS_TOKEN_PEPPER",
+    "PUBLIC_RETURN_URL",
+    "RESEND_API_KEY",
+    "RESEND_FROM_EMAIL"
+  ]);
+  validateAccessPepper(env.ACCESS_TOKEN_PEPPER);
+
+  const body = await readJson(request);
+  const reference = typeof body.reference === "string" ? body.reference.trim().toUpperCase() : "";
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+
+  if (!/^ILAB-BETA1-[A-F0-9]{32}$/.test(reference) ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) ||
+      email.length > 254) {
+    throw httpError(400, "Escribe la referencia y el correo utilizados en la compra.");
+  }
+
+  const genericResponse = () => json({
+    ok: true,
+    message: "Si encontramos una compra aprobada con esos datos, enviaremos un enlace de acceso al correo registrado."
+  }, 202, origin, env);
+
+  const purchase = await env.DB.prepare(
+    `SELECT id, access_id, status, recovery_last_sent_at
+     FROM purchases
+     WHERE reference = ? AND email = ?`
+  ).bind(reference, email).first();
+
+  // La respuesta es idéntica para compras inexistentes, pendientes o no aprobadas.
+  if (!purchase || purchase.status !== "paid" || !purchase.access_id) {
+    return genericResponse();
+  }
+
+  const cooldown = await env.DB.prepare(
+    `SELECT CASE
+       WHEN recovery_last_sent_at IS NOT NULL
+        AND datetime(recovery_last_sent_at, '+60 seconds') > CURRENT_TIMESTAMP
+       THEN 1 ELSE 0
+     END AS active
+     FROM purchases WHERE id = ?`
+  ).bind(purchase.id).first();
+
+  if (Number(cooldown?.active) === 1) return genericResponse();
+
+  const token = randomHex(32);
+  const tokenHash = await sha256Hex(token + env.ACCESS_TOKEN_PEPPER);
+  await env.DB.prepare(
+    `UPDATE purchases
+     SET recovery_token_hash = ?,
+         recovery_token_expires_at = datetime('now', '+15 minutes'),
+         recovery_token_used_at = NULL,
+         recovery_last_sent_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND status = 'paid'`
+  ).bind(tokenHash, purchase.id).run();
+
+  const accessUrl = new URL("acceso-beta1.html", env.PUBLIC_RETURN_URL);
+  accessUrl.searchParams.set("id", purchase.access_id);
+  accessUrl.hash = "token=" + token;
+
+  const subject = "Tu enlace personal de acceso a Drum Studio 5.9";
+  const textBody =
+    "Tu compra de Drum Studio 5.9 — Beta 1 está aprobada.\n\n" +
+    "Abre tu enlace personal (válido por 15 minutos y de un solo uso):\n" +
+    accessUrl.toString() +
+    "\n\nSi no solicitaste este enlace, ignora este mensaje.";
+
+  const htmlBody =
+    '<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#102330">' +
+    '<h2 style="color:#385b20">IngeniaLab.Colombia</h2>' +
+    '<p>Tu compra de <strong>Drum Studio 5.9 — Beta 1</strong> está aprobada.</p>' +
+    '<p>Usa el siguiente enlace personal para abrir el simulador:</p>' +
+    '<p><a href="' + accessUrl.toString() + '" style="display:inline-block;padding:13px 18px;background:#b6ed36;color:#102330;text-decoration:none;border-radius:6px;font-weight:bold">Abrir mi Drum Studio</a></p>' +
+    '<p>Por seguridad, el enlace vence en 15 minutos y solo se puede utilizar una vez. Puedes solicitar otro enlace desde la página de recuperación.</p>' +
+    '<p style="color:#667780;font-size:12px">Si no solicitaste este enlace, ignora este mensaje.</p>' +
+    '</div>';
+
+  let mailResponse;
+  try {
+    mailResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + env.RESEND_API_KEY.trim(),
+        "Content-Type": "application/json",
+        "Idempotency-Key": "ingenialab-access-" + purchase.access_id + "-" + crypto.randomUUID()
+      },
+      body: JSON.stringify({
+        from: env.RESEND_FROM_EMAIL.trim(),
+        to: [email],
+        subject,
+        html: htmlBody,
+        text: textBody
+      })
+    });
+  } catch {
+    await clearRecoveryToken(env, purchase.id, tokenHash);
+    throw httpError(502, "No fue posible conectar con el servicio de correo. Intenta más tarde.");
+  }
+
+  if (!mailResponse.ok) {
+    await clearRecoveryToken(env, purchase.id, tokenHash);
+    console.error("Access recovery email provider returned status:", mailResponse.status);
+    throw httpError(502, "No fue posible enviar el enlace. Revisa la configuración del servicio de correo.");
+  }
+
+  return genericResponse();
+}
+
+async function clearRecoveryToken(env, purchaseId, tokenHash) {
+  await env.DB.prepare(
+    `UPDATE purchases
+     SET recovery_token_hash = NULL,
+         recovery_token_expires_at = NULL,
+         recovery_token_used_at = NULL,
+         recovery_last_sent_at = NULL
+     WHERE id = ? AND recovery_token_hash = ?`
+  ).bind(purchaseId, tokenHash).run();
+}
+
+async function consumeIndividualAccess(request, env, origin) {
+  requireConfig(env, ["ACCESS_TOKEN_PEPPER"]);
+  validateAccessPepper(env.ACCESS_TOKEN_PEPPER);
+
+  const body = await readJson(request);
+  const accessId = typeof body.accessId === "string" ? body.accessId.toLowerCase() : "";
+  const token = typeof body.token === "string" ? body.token.toLowerCase() : "";
+
+  if (!/^[a-f0-9]{32}$/.test(accessId) || !/^[a-f0-9]{64}$/.test(token)) {
+    throw httpError(400, "El enlace de acceso no es válido.");
+  }
+
+  const tokenHash = await sha256Hex(token + env.ACCESS_TOKEN_PEPPER);
+  const purchase = await env.DB.prepare(
+    `SELECT id, status, amount_in_cents, currency
+     FROM purchases
+     WHERE access_id = ? AND recovery_token_hash = ?
+       AND recovery_token_used_at IS NULL
+       AND recovery_token_expires_at > CURRENT_TIMESTAMP`
+  ).bind(accessId, tokenHash).first();
+
+  if (!purchase ||
+      purchase.status !== "paid" ||
+      purchase.amount_in_cents !== PRICE_IN_CENTS ||
+      purchase.currency !== CURRENCY) {
+    throw httpError(403, "El enlace venció, ya fue utilizado o no corresponde a una compra aprobada. Solicita uno nuevo.");
+  }
+
+  const object = await env.PRIVATE_ASSETS.get(env.PRIVATE_ASSET_KEY || "drum-studio-beta1-full.html");
+  if (!object) throw httpError(503, "El simulador privado no está disponible en este momento.");
+
+  // Consumo atómico: un enlace de recuperación solo puede entregar el archivo una vez.
+  const consumed = await env.DB.prepare(
+    `UPDATE purchases
+     SET recovery_token_used_at = CURRENT_TIMESTAMP,
+         recovery_token_hash = NULL,
+         recovery_token_expires_at = NULL
+     WHERE id = ? AND status = 'paid'
+       AND recovery_token_hash = ?
+       AND recovery_token_used_at IS NULL
+       AND recovery_token_expires_at > CURRENT_TIMESTAMP`
+  ).bind(purchase.id, tokenHash).run();
+
+  if (Number(consumed.meta?.changes || 0) !== 1) {
+    throw httpError(403, "El enlace ya fue utilizado o venció. Solicita uno nuevo.");
+  }
+
+  const headers = new Headers({
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store, private",
+    "Content-Disposition": 'inline; filename="IngeniaLab_Drum_Studio_5_9_Beta1.html"',
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer"
   });
   if (origin === env.PUBLIC_SITE_ORIGIN) {
     Object.entries(corsHeaders(origin)).forEach(([key, value]) => headers.set(key, value));
