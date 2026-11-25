@@ -69,6 +69,8 @@ async function createCheckout(request, env, origin) {
     "PUBLIC_RETURN_URL",
     "ACCESS_TOKEN_PEPPER",
   ]);
+  validateAccessPepper(env.ACCESS_TOKEN_PEPPER);
+  validateWompiEnvironment(env, ["public", "integrity"]);
 
   const body = await readJson(request);
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
@@ -84,17 +86,6 @@ async function createCheckout(request, env, origin) {
     reference + String(PRICE_IN_CENTS) + CURRENCY + env.WOMPI_INTEGRITY_SECRET
   );
 
-  await env.DB.prepare(
-    `INSERT INTO purchases
-      (reference, email, amount_in_cents, currency, status, access_token_hash)
-     VALUES (?, ?, ?, ?, 'pending', ?)`
-  ).bind(reference, email, PRICE_IN_CENTS, CURRENCY, tokenHash).run();
-
-  const expectedKeyPrefix = env.WOMPI_ENV === "prod" ? "pub_prod_" : "pub_test_";
-  if (!["test", "prod"].includes(env.WOMPI_ENV) || !env.WOMPI_PUBLIC_KEY.startsWith(expectedKeyPrefix) || env.WOMPI_PUBLIC_KEY.includes("REEMPLAZAR")) {
-    throw httpError(503, "La llave pública de Wompi no corresponde al ambiente configurado.");
-  }
-
   const checkout = new URL("https://checkout.wompi.co/p/");
   checkout.searchParams.set("public-key", env.WOMPI_PUBLIC_KEY);
   checkout.searchParams.set("currency", CURRENCY);
@@ -103,6 +94,12 @@ async function createCheckout(request, env, origin) {
   checkout.searchParams.set("signature:integrity", integrity);
   checkout.searchParams.set("redirect-url", appendQuery(env.PUBLIC_RETURN_URL, "ref", reference));
   checkout.searchParams.set("customer-data:email", email);
+
+  await env.DB.prepare(
+    `INSERT INTO purchases
+      (reference, email, amount_in_cents, currency, status, access_token_hash)
+     VALUES (?, ?, ?, ?, 'pending', ?)`
+  ).bind(reference, email, PRICE_IN_CENTS, CURRENCY, tokenHash).run();
 
   return json({
     reference,
@@ -117,6 +114,7 @@ async function createCheckout(request, env, origin) {
 
 async function handleWompiEvent(request, env) {
   requireConfig(env, ["WOMPI_EVENTS_SECRET", "WOMPI_PRIVATE_KEY", "WOMPI_ENV"]);
+  validateWompiEnvironment(env, ["events", "private"]);
 
   const raw = await request.text();
   if (raw.length > 64_000) throw httpError(413, "Evento demasiado grande.");
@@ -191,6 +189,7 @@ async function handleWompiEvent(request, env) {
 
 async function deliverContent(request, env, origin) {
   requireConfig(env, ["ACCESS_TOKEN_PEPPER"]);
+  validateAccessPepper(env.ACCESS_TOKEN_PEPPER);
   const body = await readJson(request);
   const reference = typeof body.reference === "string" ? body.reference : "";
   const accessToken = typeof body.accessToken === "string" ? body.accessToken : "";
@@ -303,6 +302,48 @@ async function fetchWompiTransaction(transactionId, env) {
   if (!response.ok) throw httpError(503, "No se pudo confirmar la transacción con Wompi.");
   const payload = await response.json();
   return payload?.data || null;
+}
+
+
+function validateWompiEnvironment(env, requiredTypes) {
+  const environment = env.WOMPI_ENV;
+  if (!["test", "prod"].includes(environment)) {
+    throw httpError(503, "WOMPI_ENV debe ser test o prod.");
+  }
+
+  const prefixes = environment === "test"
+    ? {
+        public: "pub_test_",
+        private: "prv_test_",
+        events: "test_events_",
+        integrity: "test_integrity_",
+      }
+    : {
+        public: "pub_prod_",
+        private: "prv_prod_",
+        events: "prod_events_",
+        integrity: "prod_integrity_",
+      };
+
+  const variableNames = {
+    public: "WOMPI_PUBLIC_KEY",
+    private: "WOMPI_PRIVATE_KEY",
+    events: "WOMPI_EVENTS_SECRET",
+    integrity: "WOMPI_INTEGRITY_SECRET",
+  };
+
+  for (const type of requiredTypes) {
+    const name = variableNames[type];
+    if (!name || typeof env[name] !== "string" || !env[name].startsWith(prefixes[type])) {
+      throw httpError(503, "La credencial " + (name || type) + " no corresponde al ambiente configurado.");
+    }
+  }
+}
+
+function validateAccessPepper(value) {
+  if (typeof value !== "string" || value.length < 64) {
+    throw httpError(503, "ACCESS_TOKEN_PEPPER debe ser una cadena aleatoria de al menos 64 caracteres.");
+  }
 }
 
 async function readJson(request) {
