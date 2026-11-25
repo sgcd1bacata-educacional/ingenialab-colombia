@@ -119,16 +119,54 @@ https://<nombre-del-worker>.<cuenta>.workers.dev/api/wompi/events
 
 Activa el evento `transaction.updated` y usa el secreto de eventos correspondiente al ambiente de pruebas. La documentación de Wompi indica que los ambientes de pruebas y producción deben tener URL de eventos separadas.
 
-## Integración pendiente con la página
+## Acceso individual y recuperación por correo
 
-La plantilla pública de retorno (`pago-beta1.html`) y el ejemplo de botón (`checkout-client-example.js`) ya están preparados en esta rama, pero aún no están conectados al sitio publicado. El token temporal se conserva en `sessionStorage` de la misma pestaña; por eso el comprador debe regresar al sitio en esa misma pestaña. La página de retorno consulta el estado almacenado por el webhook y permite reintentar la comprobación mientras Wompi notifica el resultado. No se agrega el botón al `index.html` hasta que:
-1. El Worker esté desplegado y responda.
-2. D1 esté creado y migrado.
-3. El bucket privado contenga el archivo completo correcto.
-4. El webhook haya sido probado en Sandbox.
-5. La página de retorno pueda recuperar el token del comprador y solicitar el contenido.
+La página pública `index.html` ya contiene el formulario de checkout para la demo y el acceso completo. Cada nueva orden genera un `access_id` opaco de 32 caracteres hexadecimales, asociado a una sola compra en D1.
 
-Después se conectará el botón **Acceso completo Beta 1 — $4.900 COP** sin cambiar el código interno del simulador.
+La recuperación funciona así:
+1. El comprador informa la referencia de compra y el correo registrado.
+2. El Worker solo considera compras con estado `paid`.
+3. Se genera un token aleatorio de un solo uso, válido durante 15 minutos. En D1 se almacena únicamente su hash.
+4. El Worker envía por Resend un enlace personal con el `access_id` de esa compra y el token dentro del fragmento URL (`#token=`). El fragmento no se transmite en la petición HTTP inicial.
+5. `acceso-beta1.html` envía el token al Worker. El Worker lo consume atómicamente, verifica que la compra siga aprobada y entrega el archivo desde R2 privado.
+6. Si el enlace vence o ya fue usado, el comprador solicita uno nuevo. No necesita volver a pagar.
+
+Cada compra mantiene su propio `access_id`, pero el HTML completo se conserva una sola vez en el bucket privado. No se crea una copia del simulador por comprador ni se utiliza una IP como identificador.
+
+### Migración D1 requerida
+
+Antes de utilizar las nuevas rutas, aplicar una sola vez el contenido de `migrations/0002_individual_access_recovery.sql` sobre `ingenialab-beta1-db`. La migración añade `access_id` y los campos del token de recuperación, asignando un identificador a las compras anteriores para permitir recuperar la compra Beta 1 ya aprobada.
+
+Verifica después:
+
+```sql
+SELECT id, reference, status, access_id
+FROM purchases
+ORDER BY id DESC;
+```
+
+No ejecutes dos veces los `ALTER TABLE`. Para este D1 existente, confirma la versión aplicada antes de volver a ejecutar una migración desde Wrangler.
+
+### Configuración del correo
+
+La persona adulta titular o autorizada del proyecto debe gestionar la cuenta del proveedor de correo, verificar el remitente/dominio y configurar en Cloudflare:
+- `RESEND_API_KEY`: **Secret**, API key del proveedor.
+- `RESEND_FROM_EMAIL`: **Variable**, remitente verificado, por ejemplo `IngeniaLab.Colombia <accesos@dominio-verificado>`.
+
+No guardar la API key en GitHub, HTML, `wrangler.toml` ni en el chat. La ruta de envío usa la API REST de Resend (`POST https://api.resend.com/emails`) y una clave de idempotencia por mensaje. Documentación: [Resend — Send Email](https://resend.com/docs/api-reference/emails/send-email).
+
+La ruta `GET /health` informa `accessRecovery.emailProviderReady` únicamente cuando las dos variables existen; ese indicador no valida por sí solo que el dominio remitente esté verificado ni que el correo llegue a la bandeja de entrada.
+
+### Rutas nuevas
+
+| Ruta | Uso |
+| --- | --- |
+| `POST /api/access/recover` | Solicitar enlace temporal por referencia y correo |
+| `POST /api/access/consume` | Validar y consumir el enlace de un solo uso; entrega HTML de R2 |
+
+La respuesta de recuperación es genérica para no revelar si una referencia/correo corresponde a una compra. Hay un intervalo mínimo de 60 segundos entre envíos para la misma compra. El token se invalida después de su primer uso o al vencer.
+
+La página `pago-beta1.html` solicita automáticamente el enlace personal tras el retorno de un checkout reciente, y ofrece una ruta a `acceso-beta1.html` cuando se perdió la sesión de navegador. Las compras anteriores pueden recuperarse mediante la referencia y el correo guardados en D1.
 
 ## Aviso importante sobre la publicación anterior
 
