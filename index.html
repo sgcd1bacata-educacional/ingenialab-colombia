@@ -588,6 +588,8 @@ if (beta1Form) {
     !/^ILAB-BETA1-[A-F0-9]{32}$/.test(result.reference) ||
     typeof result.accessToken !== "string" ||
     !/^[a-f0-9]{64}$/.test(result.accessToken) ||
+    typeof result.accessId !== "string" ||
+    !/^[a-f0-9]{32}$/.test(result.accessId) ||
     typeof result.checkoutUrl !== "string" ||
     !result.checkoutUrl.startsWith("https://checkout.wompi.co/p/")
    ) {
@@ -598,7 +600,9 @@ if (beta1Form) {
    // No se escriben en la URL, en logs ni en almacenamiento persistente.
    sessionStorage.setItem(BETA1_SESSION_KEY, JSON.stringify({
     reference: result.reference,
-    accessToken: result.accessToken
+    accessToken: result.accessToken,
+    accessId: result.accessId,
+    email: beta1Email.value.trim().toLowerCase()
    }));
 
    beta1Status.textContent = "Orden de prueba creada. Abriendo Wompi Sandbox…";
