@@ -154,3 +154,14 @@ El Worker está conectado al repositorio de GitHub. En **Settings → Builds** d
 Como la raíz del build ya es `/cloudflare/worker`, Wrangler encuentra el archivo `wrangler.toml` directamente en esa carpeta. No agregues `--config cloudflare/worker/wrangler.toml` al comando de despliegue, porque esa ruta se resolvería dos veces.
 
 Un commit nuevo en la rama de producción configurada inicia el siguiente build. El fallo inicial ocurrió cuando Cloudflare ejecutó Wrangler desde la raíz del repositorio apuntando a una ruta de configuración incorrecta; no repitas ese intento antiguo de `main`.
+
+
+## Validación estricta de ambiente
+
+Antes de crear una orden, el Worker comprueba que las credenciales correspondan al valor de `WOMPI_ENV`:
+- Sandbox: `pub_test_`, `prv_test_`, `test_events_`, `test_integrity_`.
+- Producción: `pub_prod_`, `prv_prod_`, `prod_events_`, `prod_integrity_`.
+
+La validación se realiza en el servidor. Una credencial de Producción no puede usarse mientras `WOMPI_ENV = "test"`, ni viceversa. El Worker también comprueba que `ACCESS_TOKEN_PEPPER` tenga una longitud mínima de 64 caracteres. Mantén el entorno en `test` durante el desarrollo.
+
+**Seguridad:** las llaves privadas y secretos que se hayan mostrado en capturas o mensajes deben considerarse expuestos y rotarse desde el panel de Wompi. La llave pública puede mostrarse en el frontend; los demás valores se cargan únicamente como secretos en Cloudflare.
