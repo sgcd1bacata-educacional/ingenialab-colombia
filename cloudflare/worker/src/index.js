@@ -20,6 +20,16 @@ export default {
         const dbResult = await env.DB.prepare(
           "SELECT COUNT(*) AS table_rows FROM purchases"
         ).first();
+        const tableInfo = await env.DB.prepare("PRAGMA table_info(purchases)").all();
+        const requiredRecoveryColumns = [
+          "access_id",
+          "recovery_token_hash",
+          "recovery_token_expires_at",
+          "recovery_token_used_at",
+          "recovery_last_sent_at"
+        ];
+        const availableColumns = new Set((tableInfo.results || []).map((column) => column.name));
+        const recoverySchemaReady = requiredRecoveryColumns.every((column) => availableColumns.has(column));
         await env.PRIVATE_ASSETS.list({ limit: 1 });
         const assetKey = env.PRIVATE_ASSET_KEY || "drum-studio-beta1-full.html";
         const asset = await env.PRIVATE_ASSETS.head(assetKey);
@@ -42,6 +52,7 @@ export default {
             accessPepperReady: testEnvironment && typeof env.ACCESS_TOKEN_PEPPER === "string" && env.ACCESS_TOKEN_PEPPER.length >= 64
           },
           accessRecovery: {
+            schemaReady: recoverySchemaReady,
             emailProviderReady: Boolean(env.RESEND_API_KEY && env.RESEND_FROM_EMAIL),
             individualAccessPageConfigured: Boolean(env.PUBLIC_RETURN_URL)
           }
@@ -85,6 +96,7 @@ export default {
 };
 
 async function createCheckout(request, env, origin) {
+  await assertIndividualAccessSchema(env.DB);
   requireConfig(env, [
     "WOMPI_ENV",
     "WOMPI_PUBLIC_KEY",
@@ -278,7 +290,23 @@ async function deliverContent(request, env, origin) {
   return new Response(object.body, { status: 200, headers });
 }
 
+async function assertIndividualAccessSchema(db) {
+  const tableInfo = await db.prepare("PRAGMA table_info(purchases)").all();
+  const columns = new Set((tableInfo.results || []).map((column) => column.name));
+  const required = [
+    "access_id",
+    "recovery_token_hash",
+    "recovery_token_expires_at",
+    "recovery_token_used_at",
+    "recovery_last_sent_at"
+  ];
+  if (!required.every((column) => columns.has(column))) {
+    throw httpError(503, "La base de datos aún no tiene instalada la migración de acceso individual.");
+  }
+}
+
 async function requestAccessRecovery(request, env, origin) {
+  await assertIndividualAccessSchema(env.DB);
   requireConfig(env, [
     "ACCESS_TOKEN_PEPPER",
     "PUBLIC_RETURN_URL",
@@ -399,6 +427,7 @@ async function clearRecoveryToken(env, purchaseId, tokenHash) {
 }
 
 async function consumeIndividualAccess(request, env, origin) {
+  await assertIndividualAccessSchema(env.DB);
   requireConfig(env, ["ACCESS_TOKEN_PEPPER"]);
   validateAccessPepper(env.ACCESS_TOKEN_PEPPER);
 
