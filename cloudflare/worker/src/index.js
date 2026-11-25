@@ -91,8 +91,10 @@ async function createCheckout(request, env, origin) {
   const reference = "ILAB-BETA1-" + crypto.randomUUID().replaceAll("-", "").toUpperCase();
   const accessToken = randomHex(32);
   const tokenHash = await sha256Hex(accessToken + env.ACCESS_TOKEN_PEPPER);
+  // Normaliza únicamente espacios externos que puedan quedar al copiar el secreto.
+  const integritySecret = env.WOMPI_INTEGRITY_SECRET.trim();
   const integrity = await sha256Hex(
-    reference + String(PRICE_IN_CENTS) + CURRENCY + env.WOMPI_INTEGRITY_SECRET
+    reference + String(PRICE_IN_CENTS) + CURRENCY + integritySecret
   );
 
   const checkout = new URL("https://checkout.wompi.co/p/");
@@ -358,7 +360,7 @@ function validateWompiEnvironment(env, requiredTypes) {
 
   for (const type of requiredTypes) {
     const name = variableNames[type];
-    if (!name || typeof env[name] !== "string" || !env[name].startsWith(prefixes[type])) {
+    if (!name || typeof env[name] !== "string" || !env[name].trim().startsWith(prefixes[type])) {
       throw httpError(503, "La credencial " + (name || type) + " no corresponde al ambiente configurado.");
     }
   }
