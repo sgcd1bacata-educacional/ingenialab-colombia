@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#071522">
+  <title>Acceso individual | IngeniaLab.Colombia</title>
+  <style>
+    :root{color-scheme:dark;--bg:#071522;--panel:#102b3b;--lime:#b6ed36;--cyan:#35d7d0;--text:#f1f4f1;--muted:#b8c6cc}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;padding:22px;background:radial-gradient(circle at 15% 10%,#173d4d 0,transparent 34%),var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif}
+    main{width:min(100%,650px);background:linear-gradient(145deg,#122f40,#0c1e2b);border:1px solid #b6ed3640;border-radius:20px;padding:clamp(24px,6vw,44px);box-shadow:0 24px 80px #0006}
+    .brand{font-size:12px;font-weight:900;letter-spacing:2.5px;color:var(--lime)}
+    .motto{font-size:10px;letter-spacing:2px;color:var(--muted);margin-top:7px}
+    .line{height:1px;background:#ffffff22;margin:26px 0}
+    .eyebrow{color:var(--cyan);font-size:10px;letter-spacing:2px;font-weight:900;text-transform:uppercase}
+    h1{font-size:clamp(29px,6vw,40px);line-height:1.05;margin:13px 0}
+    p{font-size:14px;color:var(--muted);line-height:1.7}
+    label{display:block;font-size:11px;font-weight:800;letter-spacing:.7px;color:#dce5e8;margin:18px 0 7px}
+    input{width:100%;padding:13px 14px;border:1px solid #52616b;border-radius:7px;background:#f5f3ee;color:#102330;font:inherit}
+    button{margin-top:20px;border:0;background:var(--lime);color:#10202a;padding:14px 18px;border-radius:8px;font-weight:900;letter-spacing:.5px;cursor:pointer}
+    button:disabled{opacity:.6;cursor:wait}
+    .status{margin-top:20px;padding:15px;border-radius:11px;background:#07152280;border:1px solid #ffffff1b;min-height:48px}
+    .note{font-size:11px;color:#91a5ae}
+    [hidden]{display:none!important}
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand">INGENIALAB.COLOMBIA</div>
+    <div class="motto">INGENIERÍA EN ACCIÓN</div>
+    <div class="line"></div>
+    <div class="eyebrow">DRUM STUDIO 5.9 · BETA 1</div>
+    <h1>Acceso individual</h1>
+    <p>Recupera el enlace de tu compra. Enviaremos un enlace temporal al correo registrado. Cada enlace se puede utilizar una sola vez y vence a los 15 minutos.</p>
+
+    <form id="recoveryForm">
+      <label for="reference">Referencia de compra</label>
+      <input id="reference" name="reference" required maxlength="44" autocomplete="off" placeholder="ILAB-BETA1-…" pattern="ILAB-BETA1-[A-Fa-f0-9]{32}">
+      <label for="email">Correo utilizado en la compra</label>
+      <input id="email" name="email" type="email" required maxlength="254" autocomplete="email" placeholder="tu-correo@ejemplo.com">
+      <button id="sendButton" type="submit">Enviar enlace personal</button>
+    </form>
+
+    <div class="status" id="status" role="status" aria-live="polite">Escribe la referencia y el correo de la compra para solicitar un nuevo enlace.</div>
+    <p class="note">Si ya solicitaste un enlace, revisa la bandeja de entrada y la carpeta de correo no deseado. No realices otro pago para recuperar una compra existente.</p>
+  </main>
+  <script>
+    const WORKER_URL = "https://ingenialab-beta1-access.sgcd1bacata.workers.dev";
+    const form = document.getElementById("recoveryForm");
+    const referenceInput = document.getElementById("reference");
+    const emailInput = document.getElementById("email");
+    const sendButton = document.getElementById("sendButton");
+    const statusBox = document.getElementById("status");
+
+    function setStatus(message, isError = false) {
+      statusBox.textContent = message;
+      statusBox.style.borderColor = isError ? "#ffb04a" : "#ffffff1b";
+    }
+
+    async function consumeLink(accessId, token) {
+      form.hidden = true;
+      setStatus("Verificando tu enlace personal…");
+      try {
+        const response = await fetch(WORKER_URL + "/api/access/consume", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({accessId, token}),
+          cache: "no-store",
+          referrerPolicy: "no-referrer"
+        });
+        if (!response.ok) {
+          const result = await response.json().catch(() => ({}));
+          throw new Error(result.error || "El enlace no está disponible. Solicita uno nuevo.");
+        }
+        const contentType = response.headers.get("Content-Type") || "";
+        if (!contentType.toLowerCase().includes("text/html")) {
+          throw new Error("El servidor no devolvió el simulador esperado.");
+        }
+        const html = await response.text();
+        if (!html || html.length < 1000) {
+          throw new Error("El archivo recibido está incompleto.");
+        }
+        document.open("text/html", "replace");
+        document.write(html);
+        document.close();
+      } catch (error) {
+        form.hidden = false;
+        setStatus(error.message || "No fue posible verificar el enlace.", true);
+      }
+    }
+
+    const query = new URLSearchParams(location.search);
+    const accessId = (query.get("id") || "").toLowerCase();
+    const hash = new URLSearchParams(location.hash.slice(1));
+    const token = (hash.get("token") || "").toLowerCase();
+
+    // El token viaja en el fragmento (#), no en la petición HTTP.
+    // Se retira de la barra de direcciones antes de llamar al Worker.
+    if (location.hash) {
+      history.replaceState(null, "", location.pathname + location.search);
+    }
+
+    if (/^[a-f0-9]{32}$/.test(accessId) && /^[a-f0-9]{64}$/.test(token)) {
+      consumeLink(accessId, token);
+    } else {
+      const referenceFromReturn = query.get("ref") || "";
+      if (/^ILAB-BETA1-[A-Fa-f0-9]{32}$/.test(referenceFromReturn)) {
+        referenceInput.value = referenceFromReturn.toUpperCase();
+      }
+    }
+
+    form.addEventListener("submit", async function(event) {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      sendButton.disabled = true;
+      setStatus("Solicitando el enlace personal…");
+      try {
+        const response = await fetch(WORKER_URL + "/api/access/recover", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({
+            reference: referenceInput.value.trim().toUpperCase(),
+            email: emailInput.value.trim().toLowerCase()
+          }),
+          cache: "no-store",
+          referrerPolicy: "no-referrer"
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(result.error || "No fue posible solicitar el enlace.");
+        }
+        setStatus(result.message || "Si encontramos una compra aprobada con esos datos, enviaremos un enlace al correo registrado.");
+      } catch (error) {
+        setStatus(error.message || "No fue posible conectar con el servicio.", true);
+      } finally {
+        sendButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
