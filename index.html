@@ -507,8 +507,16 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}
  </div>
  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">
   <a class="btn" href="IngeniaLab_Drum_Studio_5_9_Beta1_Demo.html" target="_blank" rel="noopener">Abrir Drum Studio 5.9 ↗</a>
-  <span style="font-size:11px;color:#aebfc7;align-self:center">El simulador se abre en una pestaña independiente para conservar todas sus herramientas.</span>
+  <span style="font-size:11px;color:#aebfc7;align-self:center">La demo gratuita se abre en una pestaña independiente.</span>
  </div>
+ <form id="beta1CheckoutForm" style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:0 0 22px;padding:16px;border:1px solid #ffffff24;border-radius:12px;background:#ffffff08;max-width:760px">
+  <div style="display:flex;flex-direction:column;gap:7px;flex:1 1 250px">
+   <label for="beta1Email" style="font-size:10px;letter-spacing:1px;font-weight:800;color:#c1cbd0;text-transform:uppercase">Correo electrónico</label>
+   <input id="beta1Email" name="email" type="email" required autocomplete="email" maxlength="254" placeholder="tu-correo@ejemplo.com" style="width:100%;padding:14px 12px;border:1px solid #52616b;border-radius:6px;background:#f5f3ee;color:#102330;font:inherit">
+  </div>
+  <button id="beta1CheckoutButton" class="btn" type="submit">Acceso completo · $4.900 COP ↗</button>
+  <p id="beta1CheckoutStatus" role="status" aria-live="polite" style="flex-basis:100%;margin:0;color:#aebfc7;font-size:11px;line-height:1.6">Integración en pruebas (Sandbox). Esta prueba no realiza cobros reales. La demo continúa disponible gratuitamente.</p>
+ </form>
  <div style="background:#0b1020;border:1px solid #2b3958;border-radius:14px;padding:12px">
   <iframe title="Vista previa de IngeniaLab Drum Studio 5.9" src="IngeniaLab_Drum_Studio_5_9_Beta1_Demo.html" loading="lazy" style="width:100%;height:850px;border:0;border-radius:9px;background:#0b1020"></iframe>
  </div>
@@ -545,6 +553,64 @@ function calculate(){
  document.getElementById('status').textContent=gap>0?'Capacidad insuficiente: el escenario presenta un faltante estimado de '+fmt(gap)+' unidades. Evalúa turnos, tasa de producción o eficiencia.':'Capacidad suficiente para cubrir la producción requerida en el escenario evaluado.';
 }
 function resetForm(){document.getElementById('demand').value=1200;document.getElementById('days').value=20;document.getElementById('hours').value=8;document.getElementById('rate').value=8;document.getElementById('eff').value=85;document.getElementById('inventory').value=100;calculate()}
+
+const BETA1_WORKER_URL = "https://ingenialab-beta1-access.sgcd1bacata.workers.dev";
+const BETA1_SESSION_KEY = "ingenialab.beta1.pending";
+const beta1Form = document.getElementById("beta1CheckoutForm");
+if (beta1Form) {
+ const beta1Email = document.getElementById("beta1Email");
+ const beta1Button = document.getElementById("beta1CheckoutButton");
+ const beta1Status = document.getElementById("beta1CheckoutStatus");
+
+ beta1Form.addEventListener("submit", async function(event) {
+  event.preventDefault();
+  if (!beta1Form.reportValidity()) return;
+
+  beta1Button.disabled = true;
+  beta1Status.textContent = "Conectando con el servicio de pruebas…";
+  beta1Status.style.color = "#aebfc7";
+
+  try {
+   const response = await fetch(BETA1_WORKER_URL + "/api/checkout", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({email: beta1Email.value.trim().toLowerCase()}),
+    cache: "no-store",
+    referrerPolicy: "no-referrer"
+   });
+   const result = await response.json().catch(() => ({}));
+
+   if (!response.ok) {
+    throw new Error(result.error || "No fue posible iniciar la prueba de pago.");
+   }
+   if (
+    typeof result.reference !== "string" ||
+    !/^ILAB-BETA1-[A-F0-9]{32}$/.test(result.reference) ||
+    typeof result.accessToken !== "string" ||
+    !/^[a-f0-9]{64}$/.test(result.accessToken) ||
+    typeof result.checkoutUrl !== "string" ||
+    !result.checkoutUrl.startsWith("https://checkout.wompi.co/p/")
+   ) {
+    throw new Error("El servicio devolvió una respuesta incompleta.");
+   }
+
+   // La referencia y el token permanecen en esta pestaña para el retorno.
+   // No se escriben en la URL, en logs ni en almacenamiento persistente.
+   sessionStorage.setItem(BETA1_SESSION_KEY, JSON.stringify({
+    reference: result.reference,
+    accessToken: result.accessToken
+   }));
+
+   beta1Status.textContent = "Orden de prueba creada. Abriendo Wompi Sandbox…";
+   window.location.assign(result.checkoutUrl);
+  } catch (error) {
+   beta1Status.textContent = error.message || "No fue posible conectar con el servicio.";
+   beta1Status.style.color = "#ffbf78";
+   beta1Button.disabled = false;
+  }
+ });
+}
+
 calculate();
 </script>
 </body></html>
