@@ -22,6 +22,7 @@
     .dot.error{background:#ffb04a;box-shadow:0 0 14px #ffb04a}
     button{border:0;background:var(--lime);color:#10202a;padding:14px 18px;border-radius:8px;font-weight:900;letter-spacing:.7px;cursor:pointer}
     button:disabled{opacity:.6;cursor:wait}
+    .recovery-link{display:inline-block;margin-top:12px;color:#b6ed36;font-size:13px;font-weight:700;text-decoration:underline}
     .note{font-size:11px;color:#91a5ae}
     [hidden]{display:none!important}
   </style>
@@ -39,6 +40,7 @@
       <div id="statusText">Preparando verificación segura…</div>
     </div>
     <button id="retryButton" type="button" hidden>Comprobar nuevamente</button>
+    <a id="recoverLink" class="recovery-link" href="acceso-beta1.html" hidden>Recuperar mi acceso por correo</a>
     <p class="note" id="helpText">No cierres esta pestaña mientras finaliza la verificación. No compartas el comprobante ni los datos de acceso.</p>
   </main>
 
@@ -50,6 +52,7 @@
     const statusText = document.getElementById("statusText");
     const statusDot = document.getElementById("statusDot");
     const retryButton = document.getElementById("retryButton");
+    const recoverLink = document.getElementById("recoverLink");
     const helpText = document.getElementById("helpText");
 
     function showStatus(message, isError = false) {
@@ -72,7 +75,14 @@
 
       if (!pending || typeof pending.reference !== "string" || typeof pending.accessToken !== "string") {
         showStatus("No encontramos la sesión de compra en esta pestaña.", true);
-        helpText.textContent = "Por seguridad, el acceso está ligado a la pestaña donde iniciaste la compra. No pagues otra vez todavía; contacta a la persona administradora para recuperar tu compra.";
+        helpText.textContent = "No necesitas volver a pagar. Solicita un nuevo enlace usando la referencia y el correo registrados en la compra.";
+        const returnedReference = new URLSearchParams(location.search).get("ref") || "";
+        const recoveryUrl = new URL("acceso-beta1.html", location.href);
+        if (/^ILAB-BETA1-[A-Fa-f0-9]{32}$/.test(returnedReference)) {
+          recoveryUrl.searchParams.set("ref", returnedReference.toUpperCase());
+        }
+        recoverLink.href = recoveryUrl.toString();
+        recoverLink.hidden = false;
         retryButton.hidden = true;
         return;
       }
@@ -82,6 +92,39 @@
         helpText.textContent = "Esta página es una plantilla técnica. Se activará cuando el servicio privado esté configurado y probado.";
         retryButton.hidden = true;
         return;
+      }
+
+      if (typeof pending.email === "string" &&
+          /^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(pending.email)) {
+        try {
+          const recoveryResponse = await fetch(WORKER_URL + "/api/access/recover", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reference: pending.reference,
+              email: pending.email
+            }),
+            cache: "no-store",
+            referrerPolicy: "no-referrer"
+          });
+          const recoveryResult = await recoveryResponse.json().catch(() => ({}));
+          if (!recoveryResponse.ok) {
+            throw new Error(recoveryResult.error || "No fue posible enviar el enlace personal.");
+          }
+          sessionStorage.removeItem(STORAGE_KEY);
+          showStatus("Solicitud recibida. Revisa tu correo para abrir tu enlace personal de Drum Studio.", false);
+          helpText.textContent = recoveryResult.message || "Si encontramos una compra aprobada con esos datos, enviaremos el enlace al correo registrado. Revisa también correo no deseado.";
+          recoverLink.hidden = true;
+          retryButton.hidden = true;
+          return;
+        } catch (error) {
+          showStatus(error.message || "No fue posible enviar el enlace personal.", true);
+          helpText.textContent = "No realices otro pago. También puedes solicitar la recuperación desde la página de acceso individual.";
+          recoverLink.href = "acceso-beta1.html?ref=" + encodeURIComponent(pending.reference);
+          recoverLink.hidden = false;
+          retryButton.hidden = true;
+          return;
+        }
       }
 
       try {
