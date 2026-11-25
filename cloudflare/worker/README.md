@@ -23,7 +23,7 @@ El Worker calcula el checksum usando todas las propiedades que Wompi incluya, re
 
 ## Rutas del Worker
 
-`GET /health` ejecuta una consulta de lectura sobre D1, una operación de lista sobre el bucket R2 y un `head()` del objeto `drum-studio-beta1-full.html` para verificar que el simulador completo ya está presente en almacenamiento privado. Informa el tamaño del objeto sin exponer su contenido.
+`GET /health` ejecuta una consulta de lectura sobre D1, una operación de lista sobre el bucket R2 y un `head()` del objeto `drum-studio-beta1-full.html` para verificar que el simulador completo ya está presente en almacenamiento privado. Informa el tamaño del objeto sin exponer su contenido. También devuelve indicadores booleanos de preparación Sandbox (llave pública, privada, secreto de eventos, secreto de integridad y pepper), sin revelar valores.
 
 | Ruta | Uso |
 | --- | --- |
