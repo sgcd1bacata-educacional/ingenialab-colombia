@@ -231,8 +231,16 @@ async function deliverContent(request, env, origin) {
     throw httpError(409, "El pago todavía está pendiente de confirmación por Wompi.");
   }
 
+  if (purchase.status === "rejected") {
+    throw httpError(402, "Wompi no aprobó el pago. El acceso no fue habilitado.");
+  }
+
+  if (purchase.status === "revoked") {
+    throw httpError(403, "El acceso fue revocado.");
+  }
+
   if (purchase.status !== "paid") {
-    throw httpError(403, "El pago no fue aprobado o el acceso fue revocado.");
+    throw httpError(403, "No fue posible validar el acceso.");
   }
 
   const assetKey = env.PRIVATE_ASSET_KEY || "drum-studio-beta1-full.html";
