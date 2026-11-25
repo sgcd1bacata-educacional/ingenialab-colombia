@@ -105,6 +105,10 @@
             showStatus(result.error || "Wompi no aprobó el pago.", true);
             helpText.textContent = "Comprueba el estado de la transacción en tu comprobante. Si crees que hubo un error, contacta a la persona administradora.";
             retryButton.hidden = true;
+          } else if (response.status === 403) {
+            showStatus(result.error || "No fue posible validar el acceso.", true);
+            helpText.textContent = "El acceso no es válido o fue revocado. No realices otro pago; contacta a la persona administradora.";
+            retryButton.hidden = true;
           } else {
             showStatus(result.error || "No fue posible completar la verificación.", true);
           }
